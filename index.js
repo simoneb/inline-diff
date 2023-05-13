@@ -1,8 +1,13 @@
 import util from 'node:util'
-const $diff = Symbol.for['$diff']
+const $isDiff = Symbol('$isDiff')
+const $hasDiff = Symbol('$hasDiff')
 
 export function isDiff(obj) {
-  return obj && obj[$diff] === true
+  return obj && obj[$isDiff] === true
+}
+
+export function hasDiff(obj) {
+  return obj && obj[$hasDiff] === true
 }
 
 function deepEqualArray(old, _new) {
@@ -40,10 +45,16 @@ function deepEqual(old, _new) {
 
 function deepDiffArray(old, _new) {
   if (old.length !== _new.length) {
-    return makeDiff([old, _new])
+    return makeDiff([old, _new], $isDiff)
   }
 
-  return old.map((o, i) => diff(o, _new[i]))
+  const result = old.map((o, i) => diff(o, _new[i]))
+
+  if (result.some(r => hasDiff(r) || isDiff(r))) {
+    return makeDiff(result, $hasDiff)
+  }
+
+  return result
 }
 
 function deepDiffObject(old, _new) {
@@ -52,19 +63,25 @@ function deepDiffObject(old, _new) {
   for (const key of allKeys) {
     r[key] = diff(old[key], _new[key])
   }
+
+  if (Object.values(r).some(r => hasDiff(r) || isDiff(r))) {
+    r[$hasDiff] = true
+  }
+
   return r
 }
 
 export function unmakeDiff(r) {
-  delete r[$diff]
+  delete r[$isDiff]
+  delete r[$hasDiff]
   delete r[util.inspect.custom]
   return r
 }
 
-function makeDiff(r) {
-  r[$diff] = true
+function makeDiff(r, symbol) {
+  r[symbol] = true
   r[util.inspect.custom] = function (depth, options, inspect) {
-    return `$diff${inspect(this, {
+    return `$${Symbol.keyFor(symbol)}${inspect(this, {
       ...options,
       customInspect: false
     })}}`
@@ -80,9 +97,10 @@ export function diff(old, _new) {
   if (Array.isArray(old) && Array.isArray(_new)) {
     return deepDiffArray(old, _new)
   }
+
   if (typeof old === 'object' && typeof _new === 'object') {
     return deepDiffObject(old, _new)
   }
 
-  return makeDiff([old, _new])
+  return makeDiff([old, _new], $isDiff)
 }
