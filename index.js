@@ -10,45 +10,54 @@ export function hasDiff(obj) {
   return obj && obj[$hasDiff] === true
 }
 
-function deepEqualArray(old, _new) {
-  if (old.length !== _new.length) {
+function deepEqualArray(a, b) {
+  if (a.length !== b.length) {
     return false
   }
 
-  for (let i = 0; i < old.length; i++) {
-    return deepEqual(old[i], _new[i])
+  for (let i = 0; i < a.length; i++) {
+    return deepEqual(a[i], b[i])
   }
 }
 
-function deepEqualObject(old, _new) {
-  if (!deepEqualArray(Object.keys(old), Object.keys(_new))) {
+function deepEqualObject(a, b) {
+  const aKeys = Object.keys(a)
+
+  if (!deepEqualArray(aKeys, Object.keys(b))) {
     return false
   }
 
-  for (const key of Object.keys(old)) {
-    if (!deepEqual(old[key], _new[key])) {
+  for (const key of aKeys) {
+    if (!deepEqual(a[key], b[key])) {
       return false
     }
   }
+
   return true
 }
 
-function deepEqual(old, _new) {
-  if (Array.isArray(old) && Array.isArray(_new)) {
-    return deepEqualArray(old, _new)
+function deepEqual(a, b) {
+  if (a === b) {
+    return true
   }
-  if (typeof old === 'object' && typeof _new === 'object') {
-    return deepEqualObject(old, _new)
+
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return deepEqualArray(a, b)
   }
-  return old === _new
+
+  if (typeof a === 'object' && typeof b === 'object') {
+    return deepEqualObject(a, b)
+  }
+
+  return false
 }
 
-function deepDiffArray(old, _new) {
-  if (old.length !== _new.length) {
-    return makeDiff([old, _new], $isDiff)
+function deepDiffArray(a, b) {
+  if (a.length !== b.length) {
+    return makeDiff([a, b], $isDiff)
   }
 
-  const result = old.map((o, i) => diff(o, _new[i]))
+  const result = a.map((aa, i) => diff(aa, b[i]))
 
   if (result.some(r => hasDiff(r) || isDiff(r))) {
     return makeDiff(result, $hasDiff)
@@ -57,11 +66,11 @@ function deepDiffArray(old, _new) {
   return result
 }
 
-function deepDiffObject(old, _new) {
-  const allKeys = new Set([...Object.keys(old), ...Object.keys(_new)])
+function deepDiffObject(a, b) {
+  const allKeys = new Set([...Object.keys(a), ...Object.keys(b)])
   const r = {}
   for (const key of allKeys) {
-    r[key] = diff(old[key], _new[key])
+    r[key] = diff(a[key], b[key])
   }
 
   if (Object.values(r).some(r => hasDiff(r) || isDiff(r))) {
@@ -89,18 +98,18 @@ function makeDiff(r, symbol) {
   return r
 }
 
-export function diff(old, _new) {
-  if (old === _new || deepEqual(old, _new)) {
-    return _new
+export function diff(a, b) {
+  if (deepEqual(a, b)) {
+    return b
   }
 
-  if (Array.isArray(old) && Array.isArray(_new)) {
-    return deepDiffArray(old, _new)
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return deepDiffArray(a, b)
   }
 
-  if (typeof old === 'object' && typeof _new === 'object') {
-    return deepDiffObject(old, _new)
+  if (typeof a === 'object' && typeof b === 'object') {
+    return deepDiffObject(a, b)
   }
 
-  return makeDiff([old, _new], $isDiff)
+  return makeDiff([a, b], $isDiff)
 }
