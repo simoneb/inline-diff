@@ -1,18 +1,11 @@
+import { inspect } from 'node:util'
 import { expect } from '@jest/globals'
-import { diff, hasDiff, isDiff, unmakeDiff } from '.'
 
-function diffEqualityTester(a, b) {
-  if (isDiff(a) || hasDiff(a)) {
-    return this.equals(unmakeDiff(a), b, [diffEqualityTester])
-  }
-  return undefined
-}
-
-expect.addEqualityTesters([diffEqualityTester])
+import { diff, hasDiff, isDiff } from '..'
 
 describe('diff', () => {
   describe('primitive', () => {
-    it('string', () => {
+    test('string', () => {
       expect(diff('a', 'a')).toStrictEqual('a')
 
       const _diff1 = diff('a', 'b')
@@ -21,7 +14,7 @@ describe('diff', () => {
       expect(_diff1).toStrictEqual(['a', 'b'])
     })
 
-    it('number', () => {
+    test('number', () => {
       expect(diff(1, 1)).toStrictEqual(1)
 
       const _diff1 = diff(1, 2)
@@ -30,7 +23,7 @@ describe('diff', () => {
       expect(_diff1).toStrictEqual([1, 2])
     })
 
-    it('boolean', () => {
+    test('boolean', () => {
       expect(diff(true, true)).toStrictEqual(true)
 
       const _diff1 = diff(true, false)
@@ -40,47 +33,79 @@ describe('diff', () => {
     })
   })
 
-  it('simple array', () => {
-    const _diff1 = diff([1], [1])
-    expect(isDiff(_diff1)).toBe(false)
-    expect(_diff1).toStrictEqual([1])
+  describe('array', () => {
+    test('same', () => {
+      const _diff = diff([1], [1])
+      expect(isDiff(_diff)).toBe(false)
+      expect(_diff).toStrictEqual([1])
+    })
 
-    const _diff2 = diff([1], 2)
-    expect(isDiff(_diff2)).toBe(true)
-    expect(hasDiff(_diff2)).toBe(false)
-    expect(isDiff(_diff2[0])).toBe(false)
-    expect(_diff2).toStrictEqual([[1], 2])
+    test('against primitive', () => {
+      const _diff = diff([1], 2)
+      expect(isDiff(_diff)).toBe(true)
+      expect(hasDiff(_diff)).toBe(false)
+      expect(isDiff(_diff[0])).toBe(false)
+      expect(_diff).toStrictEqual([[1], 2])
+    })
 
-    const _diff3 = diff([1], [2])
-    expect(isDiff(_diff3)).toBe(false)
-    expect(hasDiff(_diff3)).toBe(true)
-    expect(isDiff(_diff3[0])).toBe(true)
-    expect(hasDiff(_diff3[0])).toBe(false)
-    expect(_diff3).toStrictEqual([[1, 2]])
+    test('same size, different elements', () => {
+      const _diff = diff([1], [2])
+      expect(isDiff(_diff)).toBe(false)
+      expect(hasDiff(_diff)).toBe(true)
+      expect(isDiff(_diff[0])).toBe(true)
+      expect(hasDiff(_diff[0])).toBe(false)
+      expect(_diff).toStrictEqual([[1, 2]])
+    })
+
+    test('different size', () => {
+      const _diff = diff([1], [1, 2])
+      expect(isDiff(_diff)).toBe(true)
+      expect(hasDiff(_diff)).toBe(false)
+      expect(isDiff(_diff[0])).toBe(false)
+      expect(_diff).toStrictEqual([[1], [1, 2]])
+    })
   })
 
-  it('simple object', () => {
-    expect(diff({ a: 1 }, { a: 1 })).toStrictEqual({ a: 1 })
+  describe('object', () => {
+    test('same', () => {
+      expect(diff({ a: 1 }, { a: 1 })).toStrictEqual({ a: 1 })
+    })
 
-    const _diff1 = diff({ a: 1 }, undefined)
-    expect(isDiff(_diff1)).toBe(true)
-    expect(hasDiff(_diff1)).toBe(false)
-    expect(_diff1).toStrictEqual([{ a: 1 }, undefined])
+    test('against undefined', () => {
+      const _diff = diff({ a: 1 }, undefined)
+      expect(isDiff(_diff)).toBe(true)
+      expect(hasDiff(_diff)).toBe(false)
+      expect(_diff).toStrictEqual([{ a: 1 }, undefined])
+    })
 
-    const _diff2 = diff({ a: 1 }, 2)
-    expect(isDiff(_diff2)).toBe(true)
-    expect(hasDiff(_diff2)).toBe(false)
-    expect(_diff2).toStrictEqual([{ a: 1 }, 2])
+    test('against primitive', () => {
+      const _diff = diff({ a: 1 }, 2)
+      expect(isDiff(_diff)).toBe(true)
+      expect(hasDiff(_diff)).toBe(false)
+      expect(_diff).toStrictEqual([{ a: 1 }, 2])
+    })
 
-    const _diff3 = diff({ a: 1 }, { a: 2 })
-    expect(isDiff(_diff3)).toBe(false)
-    expect(hasDiff(_diff3)).toBe(true)
-    expect(isDiff(_diff3.a)).toBe(true)
-    expect(hasDiff(_diff3.a)).toBe(false)
-    expect(_diff3).toStrictEqual({ a: [1, 2] })
+    test('same properties, different values', () => {
+      const _diff = diff({ a: 1 }, { a: 2 })
+      expect(isDiff(_diff)).toBe(false)
+      expect(hasDiff(_diff)).toBe(true)
+      expect(isDiff(_diff.a)).toBe(true)
+      expect(hasDiff(_diff.a)).toBe(false)
+      expect(_diff).toStrictEqual({ a: [1, 2] })
+    })
+
+    test('different properties', () => {
+      const _diff = diff({ a: 1 }, { b: 1 })
+      expect(isDiff(_diff)).toBe(false)
+      expect(hasDiff(_diff)).toBe(true)
+      expect(isDiff(_diff.a)).toBe(true)
+      expect(isDiff(_diff.b)).toBe(true)
+
+      expect(_diff).toStrictEqual({ a: [1, undefined], b: [undefined, 1] })
+    })
   })
 
-  it('semi production data', () => {
+  test('semi production data', () => {
     const old = {
       exchange1: {
         instrument1: {
@@ -182,5 +207,13 @@ describe('diff', () => {
     expect(hasDiff(instrument52Diff)).toBe(false)
     expect(instrument52Diff[0]).toStrictEqual(undefined)
     expect(instrument52Diff[1]).toStrictEqual(_new.exchange5.instrument52)
+  })
+
+  describe('inspect', () => {
+    test('simple', () => {
+      expect(inspect(diff({ a: 1 }, undefined))).toBe(
+        '$isDiff[ { a: 1 }, undefined ]'
+      )
+    })
   })
 })
